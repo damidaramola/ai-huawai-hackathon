@@ -80,11 +80,16 @@ class ai_assistant:
 
         # Function to retrieve data from the database
         def retrieve_data(sql_query):
-            if sql_query:
-                cursor.execute(sql_query)
-                result = cursor.fetchall()
-                return result
-            return None
+            try:
+                if sql_query:
+                    cursor.execute(sql_query)
+                    result = cursor.fetchall()
+                    return result
+                return None
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                return None
+
         
         def get_tables(cursor):
             tables = {}
