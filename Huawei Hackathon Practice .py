@@ -10,6 +10,9 @@ class ai_assistant:
         try:
             # Huawei Hackathon Practice DB // static Chinook queries
             import sqlite3  # the db we're required to use
+            from typing import List
+
+            
             # import pandas as pd #will come in handy later, currently being used to visulise my csv
             # import torch
             # from transformers
@@ -31,49 +34,49 @@ class ai_assistant:
     def query_fun(self, question: str, 
                   tables_hints: list[str], 
                   cursor: object) -> str:
+        from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+        tokenizer = AutoTokenizer.from_pretrained("juierror/flan-t5-text2sql-with-schema-v2")
+        model = AutoModelForSeq2SeqLM.from_pretrained("juierror/flan-t5-text2sql-with-schema-v2")
 
-        import spacy    # NLP Lib, requires pip install tho...
-        # Load spaCy NLP model
-        nlp = spacy.load("en_core_web_sm")
+        
+        def get_prompt(tables, question):
+            prompt = f"""convert question and table into SQL query. tables: {tables}. question: {question}"""
+            return prompt
 
-
-        # This is where we work on the Schema of the Database
-        # Based of a template code on GitHub
-
-        # Function to parse a simple question on the db: just for testing, will make more dynamic later
-        def parse_question(user_question):
-            parsed_data = {}
-            
-            # spaCy for NLP parsing
-            doc = nlp(user_question)
-            
-            # Get the relevant entities and keywords
-            # This example just checks for list artist or albums in the db: just for testing
-            for token in doc:
-                if token.text.lower() == "list" and token.head.text.lower() == "artists":
-                    parsed_data["action"] = "list artists"
-                if token.text.lower() == "list" and token.head.text.lower() == "albums":
-                    parsed_data["action"] = "list albums"
-            
-            return parsed_data
+        def prepare_input(question: str, tables:list[str]):
+            tables = [f"""{table_name}({",".join(tables[table_name])})""" for table_name in tables]
+            tables = ", ".join(tables)
+            prompt = get_prompt(tables, question)
+            input_ids = tokenizer(prompt, max_length=512, return_tensors="pt").input_ids
+            return input_ids
 
 
-        # In[3]:
+        def inference(question: str, tables:list[str]) -> str:
+            input_data = prepare_input(question=question, tables=tables)
+            input_data = input_data.to(model.device)
+            outputs = model.generate(inputs=input_data, num_beams=10, top_k=10, max_length=512)
+            result = tokenizer.decode(token_ids=outputs[0], skip_special_tokens=True)
+            print("initial result: ", result)
 
-        # Function to generate an SQL query based on parsed data
-        def generate_sql_query(parsed_data):
-            if "action" in parsed_data:
-                if parsed_data["action"] == "list artists":
-                    # SQL query to list artists
-                    return "SELECT ArtistId, Name FROM artists"
-                elif parsed_data["action"] == "list albums":
-                    # SQL query to list albums
-                    return "SELECT AlbumId, Title FROM albums"
-            
-            return None  # cant handle your query yet 
+            Map = {}
+            list_tables = list(tables.values())
+            for col in list_tables[0]:
+                    if (" " in col):
+                        ans = col.lower().replace(" ", "_")
+                        Map[ans] = col
+            result = result.replace("(", " a121lfvdfsv ")
+            result = result.replace(")", " ggb34hgh ")
 
+            for tokens in result.split():
+                if tokens in Map:
+                    result = result.replace(tokens, Map[tokens])
+                    result = result.replace(" a121lfvdfsv ", "(",)
+                    result = result.replace(" ggb34hgh ", ")")
+            print("final result: ", result)
 
-        # In[4]:
+            return result
+            # return "select `Local Electoral Area` from covid_vaccinations where Statistic_Label='Fully Vaccinated' order by `TLIST(M1)` desc, `VALUE` desc limit 1"
+            #         "SELECT T1.Local Electoral Area FROM covid_vaccinations AS T1 JOIN Age Group AS T2 ON T1.Statistic_Code = T2.Statistics_Code GROUP BY T1.Local Electoral Area ORDER BY count(*) DESC LIMIT 1"
 
         # Function to retrieve data from the database
         def retrieve_data(sql_query):
@@ -81,29 +84,44 @@ class ai_assistant:
                 cursor.execute(sql_query)
                 result = cursor.fetchall()
                 return result
-            
             return None
+        
+        def get_tables(cursor):
+            tables = {}
+            for table in cursor.execute("SELECT name FROM sqlite_master WHERE type='table';"):
+                table_name = table[0]
+                tables[table_name] = []
+                for column in cursor.execute(f"PRAGMA table_info({table_name});"):
+                    tables[table_name].append(column[1])
+            print(tables)
+            return tables
+
 
 
         # In[5]:
 
         # Function to generate an answer - This function is important but will be conidered low on priority
-        def generate_answer(result_data):
-            if result_data is not None:
-                if len(result_data) > 0:
-                    # basically formats the string line by line from the generated sql response
-                    result_str = "\n".join([f"{row[0]}. {row[1]}" for row in result_data])
-                    return result_str
-                else:
-                    return "No results found."
-            else:
-                return "sorry, cant help you."
+        # def generate_answer(result_data):
+        #     if result_data is not None:
+        #         if len(result_data) > 0:
+        #             # basically formats the string line by line from the generated sql response
+        #             result_str = "\n".join([f"{row[0]}. {row[1]}" for row in result_data])
+        #             return result_str
+        #         else:
+        #             return "No results found."
+        #     else:
+        #         return "sorry, cant help you."
             
-        parsed_data = parse_question(question)
-        sql_query = generate_sql_query(parsed_data)
+
+        sql_query = inference(question, get_tables(cursor))
+        print(sql_query) # for debugging
         result_data = retrieve_data(sql_query)
-        answer = generate_answer(result_data)
-        return answer
+        print(result_data) # for debugging
+        # answer = generate_answer(result_data)
+
+        
+        # return answer
+        return result_data
 
 # In[ ]:
 
@@ -112,18 +130,24 @@ class ai_assistant:
 # Infinite loop is NOT needed but just for debugging to avoid running the whole notebook over and over again esp with limited credits
 if __name__ == "__main__":
     print("Successful")
-    while True:
-        user_question = input("Ask me to list artists of albums...: ")
+    flag = True
+    while flag == True:
+        flag = False
+        # user_question = input("Ask me to list artists of albums...: ")
+        # user_question = "How many different age groups were tracked for covid vaccinations?"
+        user_question = "Which electoral area has worst latest fully vaccinated rate?"
         
         if user_question.lower() == "exit":
             break
         
         ai = ai_assistant()
-        database_name = "chinook.db"
+        # database_name = "chinook.db"
+        database_name = "example-covid-vaccinations.sqlite3"
         hints = ["artists", "albums"]
         dbObject = ai.connect_fun(database_name)
+        print(user_question, hints, dbObject)
         answer = ai.query_fun(user_question, hints, dbObject)
-                                              
+
         print("Answer is:\n", answer)
 
     # In[ ]:
