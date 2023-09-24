@@ -135,9 +135,9 @@ class ai_assistant:
 # Sample user interaction loop
 # Infinite loop is NOT needed but just for debugging to avoid running the whole notebook over and over again esp with limited credits
 if __name__ == "__main__":
+    
     import testing
     ai = ai_assistant()
-
 
     def query_fun(question, table_hints, conn):
         print("success")
@@ -147,50 +147,42 @@ if __name__ == "__main__":
     testing.run_test("example-simple",
             ai.connect_fun, query_fun)
 
+    
 
-    ############# active below for manual testing
+    """
 
-    # flag = True
-    # while flag:
-    #     print("success")
-    #     # flag = False
-    #     user_question = input("Query : ")
+    flag = True
+    while flag:
+        #print("success")
+        # flag = False
+        user_question = input("Query : ")
 
-    #     if user_question.lower() == "exit":
-    #         break
+        if user_question.lower() == "exit":
+            break
 
-    #     ai = ai_assistant()
-    #     database_name = "example-simple.sqlite3"
-    #     dbObject = ai.connect_fun(database_name)
-    #     tables = {}
-    #     conn = ai.connect_fun(database_name)
-    #     for table in conn.execute(
-    #         "SELECT name FROM sqlite_master WHERE type='table';"
-    #     ).fetchall():
-    #         print(table)
-    #         table_name = table[0]
-    #         tables[table_name] = []
-    #         for column in conn.execute(f"PRAGMA table_info({table_name});"):
-    #             print(column[1])
-    #             col = "_".join(column[1].split())
-    #             tables[table_name].append(col)
-    #             COLUMNS[col] = f"{column[1]}"
+        ai = ai_assistant()
+        database_name = "example-simple.sqlite3"
+        dbObject = ai.connect_fun(database_name)
+        tables = {}
+        conn = ai.connect_fun(database_name)
+        for table in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table';"
+        ).fetchall():
+            #print(table)
+            table_name = table[0]
+            tables[table_name] = []
+            for column in conn.execute(f"PRAGMA table_info({table_name});"):
+                #print(column[1])
+                col = "_".join(column[1].split())
+                tables[table_name].append(col)
+                COLUMNS[col] = f"{column[1]}"
 
-    #     # print(COLUMNS, "\n")
+        hints = tables
+        answer = ai.query_fun(user_question, hints, dbObject)
+        print("\n\n --------Answer--------- \n")
+        print(answer)
+        print("\n\n ----------------------- \n")
+        """
 
-    #     hints = tables
-    #     from pprint import pp
 
-    #     print("table below")
-    #     pp(hints)
-    #     answer = ai.query_fun(user_question, hints, dbObject)
-    #     print("\n\n --------Answer--------- \n")
-    #     print(answer)
-    #     print("\n\n ----------------------- \n")
 
-    ############# active above for manual testing
-
-    # In[ ]:
-
-    # Close db connection
-    # conn.close() // not needed for now
