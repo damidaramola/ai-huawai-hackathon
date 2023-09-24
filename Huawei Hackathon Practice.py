@@ -12,7 +12,6 @@ class ai_assistant:
             import sqlite3  # the db we're required to use
             from typing import List
 
-           
             conn = sqlite3.connect(database_name)
             # conn = sqlite3.connect("Chinook_Sqlite.sqlite") #depends on the format of the db, either works
 
@@ -23,8 +22,11 @@ class ai_assistant:
             return None
 
     # In[2]:
+    def f(*args, **kwargs):
+        print(args, kwargs)
 
     def query_fun(self, question: str, tables_hints: list[str], cursor: object) -> str:
+
         from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
         tokenizer = AutoTokenizer.from_pretrained(
@@ -54,11 +56,12 @@ class ai_assistant:
             outputs = model.generate(
                 inputs=input_data, num_beams=10, max_new_tokens=512
             )
-            result = tokenizer.decode(token_ids=outputs[0], skip_special_tokens=True)
-            #print("final result: ", result)
+            result = tokenizer.decode(
+                token_ids=outputs[0], skip_special_tokens=True)
+            print("final result: ", result)
 
             return result
-            
+
         def replace_columns(query: str) -> str:
             import re
 
@@ -83,11 +86,11 @@ class ai_assistant:
                         sql_query
                     )  # cursor.execute(replace_columns(sql_query))
                     result = cursor.fetchall()
-                    return (True, result)
+                    return result
                 return "Error Occured"
             except Exception as e:
                 print(f"An error occurred: {e}")
-                return (False, e)
+                return None
 
         def get_tables(cursor):
             tables = {}
@@ -98,36 +101,36 @@ class ai_assistant:
                 tables[table_name] = []
                 for column in cursor.execute(f"PRAGMA table_info({table_name});"):
                     tables[table_name].append(column[1])
-            #print("func =", tables)
+            print("func =", tables)
             return tables
 
         # In[5]:
 
-     
+        # Function to generate an answer - This function is important but will be cons idered low on priority
         def generate_answer(result_data, question):
-            if result_data[0]:
+            if result_data is not None:
                 if len(result_data) > 0:
                     # basically formats the string line by line from the generated sql response
-                    result_str = "\n".join([f"{row[0]}. {row[1]}" for row in result_data[1]])
+                    result_str = "\n".join(
+                        [f"{row[0]}. {row[1]}" for row in result_data])
                     return result_str
                 else:
                     return "No results found."
             else:
-                return  result_data[1]
+                return "sorry, cant help you."
 
         sql_query = inference(question, get_tables(cursor))
         # print(sql_query) # for debugging
         if not sql_query:
-            return "Sorry, cant help you."
+            return "sorry, cant help you."
         else:
             # sql_query = replace_columns(sql_query)
             result_data = retrieve_data(sql_query)
-            answer = generate_answer(result_data, question)
         # print(result_data) # for debugging
-       
+        # answer = generate_answer(result_data)
 
         # return answer
-        return answer
+        return result_data
 
 
 # In[ ]:
@@ -136,44 +139,64 @@ class ai_assistant:
 # Sample user interaction loop
 # Infinite loop is NOT needed but just for debugging to avoid running the whole notebook over and over again esp with limited credits
 if __name__ == "__main__":
-    flag = True
-    while flag:
-        print("success")
-        # flag = False
-        user_question = input("Query : ")
+    import testing
+    ai = ai_assistant()
 
-        if user_question.lower() == "exit":
-            break
+    # active below for official testing
+    ###########
+    # def query_fun(question, table_hints, conn):
+    #     # print("success")
+    #     return ai.query_fun(question, table_hints, conn)
 
-        ai = ai_assistant()
-        # database_name = "chinook.db"
-        database_name = "example-simple.sqlite3"
-        dbObject = ai.connect_fun(database_name)
-        tables = {}
-        conn = ai.connect_fun(database_name)
-        for table in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table';"
-        ).fetchall():
-            #print(table)
-            table_name = table[0]
-            tables[table_name] = []
-            for column in conn.execute(f"PRAGMA table_info({table_name});"):
-                print(column[1])
-                col = "_".join(column[1].split())
-                tables[table_name].append(col)
-                COLUMNS[col] = f"{column[1]}"
+    # # print("testing")
+    # testing.run_test("example-simple",
+    #                  ai.connect_fun, query_fun)
+    
+    #############
 
-        # print(COLUMNS, "\n")
 
-        hints = tables
-        from pprint import pp
 
-        #print("table below")
-        pp(hints)
-        answer = ai.query_fun(user_question, hints, dbObject)
-        print("\n\n --------Answer--------- \n")
-        print(answer)
-        print("\n\n ----------------------- \n")
+    ############# active below for manual testing
+
+    # flag = True
+    # while flag:
+    #     print("success")
+    #     # flag = False
+    #     user_question = input("Query : ")
+
+    #     if user_question.lower() == "exit":
+    #         break
+
+    #     ai = ai_assistant()
+    #     database_name = "example-simple.sqlite3"
+    #     dbObject = ai.connect_fun(database_name)
+    #     tables = {}
+    #     conn = ai.connect_fun(database_name)
+    #     for table in conn.execute(
+    #         "SELECT name FROM sqlite_master WHERE type='table';"
+    #     ).fetchall():
+    #         print(table)
+    #         table_name = table[0]
+    #         tables[table_name] = []
+    #         for column in conn.execute(f"PRAGMA table_info({table_name});"):
+    #             print(column[1])
+    #             col = "_".join(column[1].split())
+    #             tables[table_name].append(col)
+    #             COLUMNS[col] = f"{column[1]}"
+
+    #     # print(COLUMNS, "\n")
+
+    #     hints = tables
+    #     from pprint import pp
+
+    #     print("table below")
+    #     pp(hints)
+    #     answer = ai.query_fun(user_question, hints, dbObject)
+    #     print("\n\n --------Answer--------- \n")
+    #     print(answer)
+    #     print("\n\n ----------------------- \n")
+
+    ############# active above for manual testing
 
     # In[ ]:
 
