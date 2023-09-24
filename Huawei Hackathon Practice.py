@@ -55,7 +55,7 @@ class ai_assistant:
                 inputs=input_data, num_beams=10, max_new_tokens=512
             )
             result = tokenizer.decode(token_ids=outputs[0], skip_special_tokens=True)
-            print("final result: ", result)
+            #print("final result: ", result)
 
             return result
             
@@ -83,11 +83,11 @@ class ai_assistant:
                         sql_query
                     )  # cursor.execute(replace_columns(sql_query))
                     result = cursor.fetchall()
-                    return result
+                    return (True, result)
                 return "Error Occured"
             except Exception as e:
                 print(f"An error occurred: {e}")
-                return None
+                return (False, e)
 
         def get_tables(cursor):
             tables = {}
@@ -98,35 +98,36 @@ class ai_assistant:
                 tables[table_name] = []
                 for column in cursor.execute(f"PRAGMA table_info({table_name});"):
                     tables[table_name].append(column[1])
-            print("func =", tables)
+            #print("func =", tables)
             return tables
 
         # In[5]:
 
-        Function to generate an answer - This function is important but will be cons idered low on priority
+     
         def generate_answer(result_data, question):
-            if result_data is not None:
+            if result_data[0]:
                 if len(result_data) > 0:
                     # basically formats the string line by line from the generated sql response
-                    result_str = "\n".join([f"{row[0]}. {row[1]}" for row in result_data])
+                    result_str = "\n".join([f"{row[0]}. {row[1]}" for row in result_data[1]])
                     return result_str
                 else:
                     return "No results found."
             else:
-                return "sorry, cant help you."
+                return  result_data[1]
 
         sql_query = inference(question, get_tables(cursor))
         # print(sql_query) # for debugging
         if not sql_query:
-            return "sorry, cant help you."
+            return "Sorry, cant help you."
         else:
             # sql_query = replace_columns(sql_query)
             result_data = retrieve_data(sql_query)
+            answer = generate_answer(result_data, question)
         # print(result_data) # for debugging
-        # answer = generate_answer(result_data)
+       
 
         # return answer
-        return result_data
+        return answer
 
 
 # In[ ]:
@@ -153,7 +154,7 @@ if __name__ == "__main__":
         for table in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table';"
         ).fetchall():
-            print(table)
+            #print(table)
             table_name = table[0]
             tables[table_name] = []
             for column in conn.execute(f"PRAGMA table_info({table_name});"):
@@ -167,7 +168,7 @@ if __name__ == "__main__":
         hints = tables
         from pprint import pp
 
-        print("table below")
+        #print("table below")
         pp(hints)
         answer = ai.query_fun(user_question, hints, dbObject)
         print("\n\n --------Answer--------- \n")
